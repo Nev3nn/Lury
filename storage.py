@@ -1,0 +1,21 @@
+import json, os, sys, copy
+# Empacotado (PyInstaller --onefile): usa a pasta do .exe, não a pasta temporária
+BASE = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
+PATH = os.path.join(BASE, "data.json")
+DEFAULT = {"points": 0, "items": [], "subjects": {}, "daily_goal_h": 2.0, "schedule": {},
+           "todo": {}, "sessions": {}, "simulados": [], "last_adjust": 0,
+           "streak_miss": 0, "penalty_log": [], "last_checked": ""}
+
+def load():
+    d = copy.deepcopy(DEFAULT)
+    if os.path.exists(PATH):
+        try:
+            with open(PATH, encoding="utf-8") as f:
+                d.update(json.load(f))
+        except (OSError, ValueError):
+            pass
+    return d
+
+def save(d):
+    with open(PATH, "w", encoding="utf-8") as f:
+        json.dump(d, f, ensure_ascii=False, indent=2)

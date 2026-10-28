@@ -1,0 +1,18 @@
+STUDYGAMIFIED - GUIA RAPIDO
+
+COMO USAR
+1. Mantenha StudyGamified.exe e a pasta "Aulas" juntos, na mesma pasta.
+2. Coloque seus PDFs dentro da pasta "Aulas" (eles aparecem sozinhos no app).
+3. De dois cliques em StudyGamified.exe.
+4. Seu progresso fica salvo em "data.json", criado ao lado do .exe.
+   Para fazer backup ou trocar de computador, copie esse arquivo.
+
+AVISO DO WINDOWS
+Como o .exe nao tem assinatura digital, o SmartScreen pode avisar na primeira vez.
+Clique em "Mais informacoes" e depois em "Executar assim mesmo".
+
+COMO GERAR O .EXE (so uma vez, em um Windows com Python 3.9+)
+Abra o terminal na pasta do projeto e rode:
+  pip install customtkinter pyinstaller
+  pyinstaller --onefile --noconsole --collect-all customtkinter --name StudyGamified main.py
+O arquivo final fica em dist\StudyGamified.exe. Copie-o para junto da pasta "Aulas".
