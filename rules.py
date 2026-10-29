@@ -3,27 +3,47 @@ from datetime import date, timedelta
 
 DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 PTS_PER_MIN = 10
+DEV_BONUS = 5000  # atalho de desenvolvedor (Ctrl+Shift+P ou botão 🛠 na aba Foco)
 
 def weekly_minutes(subjects, daily_h):
-    """soma pesos -> horas/dia x 7 -> minutos semanais / soma = fator por ponto -> fator x peso."""
-    total_w = sum(subjects.values())
-    if total_w <= 0:
+    """soma pesos -> horas/dia x 7 x 60 / soma = fator por ponto -> fator x peso (peso mínimo 1)."""
+    w = {s: max(1, int(v)) for s, v in subjects.items()}
+    total = sum(w.values())
+    if not total:
         return {}
-    base = daily_h * 7 * 60 / total_w
-    return {s: round(base * w) for s, w in subjects.items() if w > 0}
+    base = daily_h * 7 * 60 / total
+    return {s: round(base * v) for s, v in w.items()}
 
-def build_schedule(subjects, daily_h):
-    """Divide cada matéria em sessões de ~45 min e as põe nos dias menos carregados."""
+def build_schedule(subjects, daily_h, per_day=2):
+    """Cada matéria aparece ao menos 1x/semana. Se há mais matérias que vagas (7 x por_dia), os dias
+    'sobrando' recebem 1 matéria a mais, espaçados. Vagas extras vão para as matérias mais difíceis."""
+    mins = weekly_minutes(subjects, daily_h); subs = list(mins)
+    if not subs:
+        return {d: [] for d in DAYS}
+    w = {s: max(1, int(subjects[s])) for s in subs}
+    slots = max(7 * max(1, min(per_day, len(subs))), len(subs))
+    apps = {s: 1 for s in subs}
+    for _ in range(slots - len(subs)):
+        pool = [s for s in subs if apps[s] < 7]
+        if not pool: break
+        apps[max(pool, key=lambda s: w[s] / apps[s])] += 1
+    base, extra = divmod(slots, 7)
+    heavy = {int((j + 0.5) * 7 / extra) for j in range(extra)}
+    cap = [base + (i in heavy) for i in range(7)]
+    days = [[] for _ in range(7)]
+    for s in sorted(subs, key=lambda s: (-apps[s], -w[s])):
+        for _ in range(apps[s]):
+            free = [i for i in range(7) if cap[i] > 0]
+            if not free: break
+            ok = [i for i in free if s not in days[i]] or free
+            put = max(ok, key=lambda i: (min((min((i - j) % 7, (j - i) % 7) for j, x in enumerate(days) if s in x), default=7), cap[i]))
+            days[put].append(s); cap[put] -= 1
     sched = {d: [] for d in DAYS}
-    load = [0] * 7
-    for s, m in sorted(weekly_minutes(subjects, daily_h).items(), key=lambda x: -x[1]):
-        n = min(7, max(1, round(m / 45)))
-        chunk, rem = divmod(m, n)
-        days = sorted(sorted(range(7), key=lambda i: (load[i], i))[:n])
-        for k, i in enumerate(days):
-            t = chunk + (rem if k == 0 else 0)
-            sched[DAYS[i]].append({"subject": s, "minutes": t})
-            load[i] += t
+    for s in subs:
+        n = max(1, sum(x.count(s) for x in days)); chunk, rem = divmod(mins[s], n); first = True
+        for i, x in enumerate(days):
+            for _ in range(x.count(s)):
+                sched[DAYS[i]].append({"subject": s, "minutes": chunk + (rem if first else 0)}); first = False
     return sched
 
 def week_days():
@@ -55,20 +75,41 @@ def apply_penalties(d):
                 d["penalty_log"].append({"date": day.isoformat(), "loss": loss, "streak": d["streak_miss"]})
         day += timedelta(1)
 
+def sub_scores(sim):
+    """Notas 0-10 por matéria (aceita o formato antigo, que já era 0-10)."""
+    return {k: v["score"] for k, v in sim["subjects"].items()} if "subjects" in sim else dict(sim.get("scores", {}))
+
+def overall(sim):
+    if "score10" in sim: return sim["score10"]
+    v = list(sub_scores(sim).values()); return sum(v) / len(v) if v else 0
+
+def level(avg):
+    return "crítico" if avg < 4 else "fraco" if avg < 6 else "ok" if avg < 8 else "forte"
+
+def analyze(d, last=3):
+    """Normaliza tudo para 0-10: média dos últimos simulados por matéria, tendência e nível. Mais fracas primeiro."""
+    sims, out = d["simulados"][-last:], []
+    for s in {k for x in sims for k in sub_scores(x)}:
+        v = [sub_scores(x)[s] for x in sims if s in sub_scores(x)]
+        out.append({"subject": s, "avg": sum(v) / len(v), "last": v[-1], "trend": v[-1] - v[-2] if len(v) > 1 else 0, "n": len(v)})
+    return sorted(out, key=lambda r: r["avg"])
+
 def propose_adjustment(d):
-    """Compara os 2 últimos simulados; nota menor/queda => peso maior."""
-    a, b = d["simulados"][-2:]
-    new, changes = {}, []
-    for s, w in d["subjects"].items():
-        if w == 0 or s not in a["scores"] or s not in b["scores"]:
-            new[s] = w
-            continue
-        avg = (a["scores"][s] + b["scores"][s]) / 2
-        delta = b["scores"][s] - a["scores"][s]
-        step = (avg < 6) + (avg < 4) - (avg >= 8) + (delta <= -1) - (delta >= 1)
-        new[s] = max(1, min(5, w + max(-2, min(2, step))))
-        changes.append((s, w, new[s], avg, delta))
-    return new, changes, build_schedule(new, d["daily_goal_h"])
+    """Novo peso = metade do peso atual + metade do alvo (5 - média/10 x 4); queda forte sobe, alta forte desce."""
+    new, changes = dict(d["subjects"]), []
+    for r in analyze(d):
+        s = r["subject"]
+        if s not in new: continue
+        w = 0.5 * new[s] + 0.5 * (5 - r["avg"] / 10 * 4) + (0.5 if r["trend"] <= -1.5 else -0.5 if r["trend"] >= 1.5 else 0)
+        nw = max(1, min(5, int(w + 0.5)))
+        if nw != new[s]: changes.append((s, new[s], nw, r["avg"], r["trend"]))
+        new[s] = nw
+    return new, changes, build_schedule(new, d["daily_goal_h"], d["per_day"])
+
+def reminder_due(d):
+    """True se faz mais de 30 dias do último simulado (ou da criação do cronograma)."""
+    last = d["simulados"][-1]["date"] if d["simulados"] else d.get("schedule_date")
+    return bool(d["schedule"] and last and (date.today() - date.fromisoformat(last)).days > 30)
 
 def schedule_card(c, grade):
     """Espaçamento estilo Anki. grade: 0 Errei, 1 Difícil, 2 Bom, 3 Fácil."""

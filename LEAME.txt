@@ -2,16 +2,18 @@ LYRA STUDY - GUIA RAPIDO
 
 COMO USAR
 1. Mantenha LyraStudy.exe e a pasta "PDFs" juntos, na mesma pasta.
-2. Monte seu cronograma na aba Cronograma. O programa cria sozinho uma subpasta
-   em "PDFs" para cada materia (ex.: PDFs\Matematica, PDFs\Fisica, PDFs\Ingles).
-3. Coloque os PDFs na subpasta da materia. Eles aparecem na aba PDFs, com filtro por materia.
-4. Foco e Loja: use "Configurar timer" para mudar foco, pausas e o modo (regressivo/progressivo).
-5. Revisao: crie cartoes (pergunta/resposta) e estude. Errei/Dificil/Bom/Facil reagendam a revisao.
-6. Seu progresso fica em "data.json", ao lado do .exe. Copie esse arquivo para fazer backup.
-
-VINDO DA VERSAO ANTIGA (StudyGamified)
-Copie o seu data.json antigo para a pasta do novo .exe para manter pontos, cronograma e itens.
-Se existir uma pasta "Aulas", ela e renomeada para "PDFs" automaticamente.
+2. Cronograma: informe as materias, horas por dia, quantas materias por dia e a dificuldade (1 a 5) de cada uma.
+   O programa cria uma subpasta em "PDFs" para cada materia (ex.: PDFs\Matematica).
+3. PDFs: coloque os arquivos na subpasta da materia e filtre por materia na aba PDFs.
+4. Foco e Loja: cronometro HH:MM:SS.mmm, modos Pomodoro (regressivo, com pausas) e Progressivo
+   (botao "Configurar timer"). Cada minuto de foco rende 10 pontos para mobiliar a casa.
+   Atalho de teste: Ctrl+Shift+P (ou o botao "+5000 pts") adiciona 5000 pontos.
+5. Revisao: flashcards com repeticao espacada (Errei / Dificil / Bom / Facil).
+6. Desempenho: registre simulados (escala da prova, acertos totais e por materia). O programa normaliza tudo
+   para 0-10, mostra seus pontos fracos e sugere novos graus de dificuldade ("Aceita a Nova Grade?").
+   Sem simulados por mais de 1 mes, voce recebe um lembrete para revisar as dificuldades.
+7. Seu progresso fica em "data.json", ao lado do .exe. Copie esse arquivo para fazer backup
+   (e para manter seus dados ao trocar de versao).
 
 AVISO DO WINDOWS
 Sem assinatura digital, o SmartScreen pode avisar. Clique em "Mais informacoes" > "Executar assim mesmo".

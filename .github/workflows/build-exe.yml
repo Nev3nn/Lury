@@ -2,9 +2,6 @@ name: Build Windows EXE
 
 on:
   push:
-    branches:
-      - main
-      - master
   workflow_dispatch:
 
 jobs:
@@ -28,10 +25,10 @@ jobs:
 
       - name: Compilar o executável
         run: |
-          pyinstaller --onefile --noconsole --collect-all customtkinter --name StudyGamified main.py
+          pyinstaller --onefile --noconsole --collect-all customtkinter --name LyraStudy main.py
 
       - name: Upload do EXE como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: StudyGamified-Windows
-          path: dist/StudyGamified.exe
+          name: LyraStudy-Windows
+          path: dist/LyraStudy.exe

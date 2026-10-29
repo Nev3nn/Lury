@@ -24,35 +24,35 @@ class PlanTab(ctk.CTkFrame):
         self.e_sub = ctk.CTkEntry(f, width=380, placeholder_text="Matemática, Física, Inglês"); self.e_sub.pack(pady=6)
         ctk.CTkLabel(f, text="Quantas horas por dia você quer estudar?").pack()
         self.e_h = ctk.CTkEntry(f, width=120, placeholder_text="2.5"); self.e_h.pack(pady=6)
+        ctk.CTkLabel(f, text="Quantas matérias você quer estudar por dia?").pack()
+        self.e_n = ctk.CTkEntry(f, width=120, placeholder_text="2"); self.e_n.pack(pady=6)
         self.err = ctk.CTkLabel(f, text="", text_color=RED); self.err.pack()
         ctk.CTkButton(f, text="Próximo", command=self.step2, **PRIMARY).pack(pady=10)
 
     def step2(self):
         subs = list(dict.fromkeys(s.strip() for s in self.e_sub.get().split(",") if s.strip()))
-        try: h = float(self.e_h.get().replace(",", "."))
-        except ValueError: h = 0
-        if not subs or h <= 0:
-            return self.err.configure(text="Informe as matérias e uma meta de horas maior que zero.")
+        try: h = float(self.e_h.get().replace(",", ".")); n = int(self.e_n.get())
+        except ValueError: h = n = 0
+        if not subs or h <= 0 or n < 1:
+            return self.err.configure(text="Informe matérias, horas por dia (> 0) e matérias por dia (>= 1).")
         self.clear()
-        f = ctk.CTkScrollableFrame(self, label_text="Dificuldade de cada matéria (0 = fácil, 5 = muito difícil)")
+        f = ctk.CTkScrollableFrame(self, label_text="Dificuldade de cada matéria (1 = fácil, 5 = muito difícil)")
         f.pack(fill="both", expand=True, padx=40, pady=10)
         self.sl = {}
         for s in subs:
             r = ctk.CTkFrame(f, fg_color="transparent"); r.pack(fill="x", pady=6)
             ctk.CTkLabel(r, text=s, width=160, anchor="w").pack(side="left")
             v = ctk.CTkLabel(r, text="3", width=24)
-            sl = ctk.CTkSlider(r, from_=0, to=5, number_of_steps=5,
+            sl = ctk.CTkSlider(r, from_=1, to=5, number_of_steps=4,
                                command=lambda x, l=v: l.configure(text=str(int(round(x)))))
             sl.set(3); sl.pack(side="left", fill="x", expand=True, padx=8); v.pack(side="left"); self.sl[s] = sl
         self.err = ctk.CTkLabel(self, text="", text_color=RED); self.err.pack()
-        ctk.CTkButton(self, text="Gerar cronograma", command=lambda: self.finish(h), **PRIMARY).pack(pady=10)
+        ctk.CTkButton(self, text="Gerar cronograma", command=lambda: self.finish(h, n), **PRIMARY).pack(pady=10)
 
-    def finish(self, h):
+    def finish(self, h, n):
         w = {s: int(round(sl.get())) for s, sl in self.sl.items()}
-        if sum(w.values()) == 0:
-            return self.err.configure(text="Ao menos uma matéria precisa ter dificuldade maior que 0.")
-        d = self.app.data
-        d.update(subjects=w, daily_goal_h=h, schedule=build_schedule(w, h))
+        n = min(n, len(w)); d = self.app.data
+        d.update(subjects=w, daily_goal_h=h, per_day=n, schedule=build_schedule(w, h, n), schedule_date=date.today().isoformat())
         self.app.commit()
 
     # ---------- Cronograma + To-Do ----------
@@ -60,7 +60,7 @@ class PlanTab(ctk.CTkFrame):
         d = self.app.data
         top = ctk.CTkFrame(self, fg_color="transparent"); top.pack(fill="x", pady=(0, 6))
         wm = weekly_minutes(d["subjects"], d["daily_goal_h"])
-        ctk.CTkLabel(top, text=f"Meta: {d['daily_goal_h']:g} h/dia  •  {sum(wm.values()) / 60:.1f} h/semana",
+        ctk.CTkLabel(top, text=f"Meta: {d['daily_goal_h']:g} h/dia  •  {sum(wm.values()) / 60:.1f} h/semana  •  {d['per_day']} matéria(s)/dia",
                      font=("Segoe UI", 15, "bold"), text_color=GOLD).pack(side="left", padx=8)
         ctk.CTkButton(top, text="Reconfigurar", width=110, fg_color="gray30",
                       command=lambda: (self.clear(), self.wizard())).pack(side="right")
