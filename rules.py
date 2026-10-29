@@ -69,3 +69,16 @@ def propose_adjustment(d):
         new[s] = max(1, min(5, w + max(-2, min(2, step))))
         changes.append((s, w, new[s], avg, delta))
     return new, changes, build_schedule(new, d["daily_goal_h"])
+
+def schedule_card(c, grade):
+    """Espaçamento estilo Anki. grade: 0 Errei, 1 Difícil, 2 Bom, 3 Fácil."""
+    if grade == 0:
+        c["reps"], c["interval"] = 0, 0
+        c["ease"] = max(1.3, c["ease"] - 0.2)
+    else:
+        c["ease"] = max(1.3, c["ease"] + (-0.15, 0, 0.15)[grade - 1])
+        if c["reps"] == 0: iv = (1, 1, 3)[grade - 1]
+        elif c["reps"] == 1: iv = (2, 4, 6)[grade - 1]
+        else: iv = max(c["interval"] + 1, round(c["interval"] * c["ease"] * (0.8, 1, 1.3)[grade - 1]))
+        c["interval"], c["reps"] = iv, c["reps"] + 1
+    c["due"] = (date.today() + timedelta(c["interval"])).isoformat()

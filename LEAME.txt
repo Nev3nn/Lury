@@ -1,18 +1,22 @@
-STUDYGAMIFIED - GUIA RAPIDO
+LYRA STUDY - GUIA RAPIDO
 
 COMO USAR
-1. Mantenha StudyGamified.exe e a pasta "Aulas" juntos, na mesma pasta.
-2. Coloque seus PDFs dentro da pasta "Aulas" (eles aparecem sozinhos no app).
-3. De dois cliques em StudyGamified.exe.
-4. Seu progresso fica salvo em "data.json", criado ao lado do .exe.
-   Para fazer backup ou trocar de computador, copie esse arquivo.
+1. Mantenha LyraStudy.exe e a pasta "PDFs" juntos, na mesma pasta.
+2. Monte seu cronograma na aba Cronograma. O programa cria sozinho uma subpasta
+   em "PDFs" para cada materia (ex.: PDFs\Matematica, PDFs\Fisica, PDFs\Ingles).
+3. Coloque os PDFs na subpasta da materia. Eles aparecem na aba PDFs, com filtro por materia.
+4. Foco e Loja: use "Configurar timer" para mudar foco, pausas e o modo (regressivo/progressivo).
+5. Revisao: crie cartoes (pergunta/resposta) e estude. Errei/Dificil/Bom/Facil reagendam a revisao.
+6. Seu progresso fica em "data.json", ao lado do .exe. Copie esse arquivo para fazer backup.
+
+VINDO DA VERSAO ANTIGA (StudyGamified)
+Copie o seu data.json antigo para a pasta do novo .exe para manter pontos, cronograma e itens.
+Se existir uma pasta "Aulas", ela e renomeada para "PDFs" automaticamente.
 
 AVISO DO WINDOWS
-Como o .exe nao tem assinatura digital, o SmartScreen pode avisar na primeira vez.
-Clique em "Mais informacoes" e depois em "Executar assim mesmo".
+Sem assinatura digital, o SmartScreen pode avisar. Clique em "Mais informacoes" > "Executar assim mesmo".
 
-COMO GERAR O .EXE (so uma vez, em um Windows com Python 3.9+)
-Abra o terminal na pasta do projeto e rode:
+COMO GERAR O .EXE (em um Windows com Python 3.9+, na pasta do projeto)
   pip install customtkinter pyinstaller
-  pyinstaller --onefile --noconsole --collect-all customtkinter --name StudyGamified main.py
-O arquivo final fica em dist\StudyGamified.exe. Copie-o para junto da pasta "Aulas".
+  pyinstaller --onefile --noconsole --collect-all customtkinter --name LyraStudy main.py
+O arquivo fica em dist\LyraStudy.exe.

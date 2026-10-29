@@ -2,7 +2,8 @@ import json, os, sys, copy
 # Empacotado (PyInstaller --onefile): usa a pasta do .exe, não a pasta temporária
 BASE = os.path.dirname(sys.executable) if getattr(sys, "frozen", False) else os.path.dirname(os.path.abspath(__file__))
 PATH = os.path.join(BASE, "data.json")
-DEFAULT = {"points": 0, "items": [], "subjects": {}, "daily_goal_h": 2.0, "schedule": {},
+TIMER_DEFAULT = {"focus": 25, "short": 5, "long": 15, "cycles": 4, "mode": "Regressivo"}
+DEFAULT = {"cards": [], "timer": dict(TIMER_DEFAULT), "points": 0, "items": [], "subjects": {}, "daily_goal_h": 2.0, "schedule": {},
            "todo": {}, "sessions": {}, "simulados": [], "last_adjust": 0,
            "streak_miss": 0, "penalty_log": [], "last_checked": ""}
 
