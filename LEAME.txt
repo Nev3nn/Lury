@@ -4,11 +4,13 @@ COMO USAR
 1. Mantenha LyraStudy.exe e a pasta "PDFs" juntos, na mesma pasta.
 2. Cronograma: informe as materias, horas por dia, quantas materias por dia e a dificuldade (1 a 5) de cada uma.
    O programa cria uma subpasta em "PDFs" para cada materia (ex.: PDFs\Matematica).
-3. PDFs: coloque os arquivos na subpasta da materia e filtre por materia na aba PDFs.
+3. PDFs: coloque os arquivos na subpasta da materia e filtre por materia. Use "Pasta" para adicionar ou remover
+   pastas (removidas vao para PDFs\_Removidas, nada e apagado) e marque "Estudado" em cada PDF.
 4. Foco e Loja: cronometro HH:MM:SS.mmm, modos Pomodoro (regressivo, com pausas) e Progressivo
-   (botao "Configurar timer"). Cada minuto de foco rende 10 pontos para mobiliar a casa.
+   (botao "Configurar timer"; o Progressivo e contagem livre, sem pausas nem ciclos). Cada minuto de foco rende 10 pontos para mobiliar a casa.
    Atalho de teste: Ctrl+Shift+P (ou o botao "+5000 pts") adiciona 5000 pontos.
-5. Revisao: flashcards com repeticao espacada (Errei / Dificil / Bom / Facil).
+5. Revisao: flashcards com imagens (frente e verso), edicao, categorias/subcategorias e repeticao espacada
+   (Errei / Dificil / Bom / Facil). As imagens ficam na pasta "Imagens", ao lado do .exe.
 6. Desempenho: registre simulados (escala da prova, acertos totais e por materia). O programa normaliza tudo
    para 0-10, mostra seus pontos fracos e sugere novos graus de dificuldade ("Aceita a Nova Grade?").
    Sem simulados por mais de 1 mes, voce recebe um lembrete para revisar as dificuldades.
@@ -19,6 +21,6 @@ AVISO DO WINDOWS
 Sem assinatura digital, o SmartScreen pode avisar. Clique em "Mais informacoes" > "Executar assim mesmo".
 
 COMO GERAR O .EXE (em um Windows com Python 3.9+, na pasta do projeto)
-  pip install customtkinter pyinstaller
+  pip install customtkinter pillow pyinstaller
   pyinstaller --onefile --noconsole --collect-all customtkinter --name LyraStudy main.py
 O arquivo fica em dist\LyraStudy.exe.

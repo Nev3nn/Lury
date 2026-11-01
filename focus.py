@@ -95,26 +95,36 @@ class FocusTab(ctk.CTkFrame):
         save(d); self.app.update_header(); self.refresh()
 
     def settings(self):
-        c = self.cfg(); w = ctk.CTkToplevel(self); w.title("Configurar timer"); w.geometry("380x400")
+        c = self.cfg(); w = ctk.CTkToplevel(self); w.title("Configurar timer"); w.geometry("380x360")
         w.transient(self.winfo_toplevel()); w.after(150, w.grab_set)
         ents = {}
-        for key, text in [("focus", "Foco (min)"), ("short", "Pausa curta (min)"), ("long", "Pausa longa (min)"),
-                          ("cycles", "Focos até a pausa longa")]:
-            r = ctk.CTkFrame(w, fg_color="transparent"); r.pack(fill="x", padx=24, pady=6)
-            ctk.CTkLabel(r, text=text, anchor="w", width=180).pack(side="left")
-            e = ctk.CTkEntry(r, width=80); e.insert(0, str(c[key])); e.pack(side="left"); ents[key] = e
-        mode = ctk.CTkSegmentedButton(w, values=["Pomodoro", "Progressivo"]); mode.set(c["mode"]); mode.pack(pady=12)
-        ctk.CTkLabel(w, text="Pomodoro: contagem regressiva com pausas.\nProgressivo: conta para cima, sem pausas.",
-                     text_color="gray70").pack()
+        mode = ctk.CTkSegmentedButton(w, values=["Pomodoro", "Progressivo"], command=lambda m: build(m))
+        mode.set(c["mode"]); mode.pack(pady=(18, 8))
+        box = ctk.CTkFrame(w, fg_color="transparent"); box.pack(fill="x")
         err = ctk.CTkLabel(w, text="", text_color=RED); err.pack(pady=4)
+
+        def build(m):  # progressivo = contagem livre: sem pausas, ciclos ou durações
+            for x in box.winfo_children(): x.destroy()
+            ents.clear()
+            if m == "Progressivo":
+                ctk.CTkLabel(box, text="Contagem livre para cima (horas, minutos, segundos e milissegundos), "
+                             "sem limite e sem pausas.", wraplength=320, text_color="gray70").pack(pady=24)
+                return
+            ctk.CTkLabel(box, text="Contagem regressiva com pausas.", text_color="gray70").pack(pady=(0, 6))
+            for key, text in [("focus", "Foco (min)"), ("short", "Pausa curta (min)"), ("long", "Pausa longa (min)"),
+                              ("cycles", "Focos até a pausa longa")]:
+                r = ctk.CTkFrame(box, fg_color="transparent"); r.pack(fill="x", padx=24, pady=6)
+                ctk.CTkLabel(r, text=text, anchor="w", width=180).pack(side="left")
+                e = ctk.CTkEntry(r, width=80); e.insert(0, str(c[key])); e.pack(side="left"); ents[key] = e
 
         def ok():
             try: v = {k: int(e.get()) for k, e in ents.items()}
             except ValueError: return err.configure(text="Use números inteiros.")
             if any(x < 1 for x in v.values()): return err.configure(text="Use valores a partir de 1.")
-            self.app.data["timer"] = {**v, "mode": mode.get()}; save(self.app.data)
+            self.app.data["timer"] = {**c, **v, "mode": mode.get()}; save(self.app.data)
             w.destroy(); self.restart()
         ctk.CTkButton(w, text="Salvar", command=ok, **PRIMARY).pack(pady=8)
+        build(c["mode"])
 
     def buy(self, name, price):
         d = self.app.data
