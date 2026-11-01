@@ -2,9 +2,9 @@ import time
 from datetime import date
 import customtkinter as ctk
 from house import ITEMS, TITLES, draw
-from rules import PTS_PER_MIN
+from rules import PTS_PER_MIN, goal_min, studied
 from storage import save, TIMER_DEFAULT
-from theme import PRIMARY, GOLD, TEAL, RED
+from theme import PRIMARY, GOLD, TEAL, RED, MUTED, header, animate
 
 def fmt_t(sec):
     ms = int(sec * 1000); h, ms = divmod(ms, 3600000); m, ms = divmod(ms, 60000); s, ms = divmod(ms, 1000)
@@ -18,9 +18,11 @@ class FocusTab(ctk.CTkFrame):
         super().__init__(master, fg_color="transparent")
         self.app, self.running, self.job, self.phase, self.done = app, False, None, "Foco", 0
         self.base, self.t0, self.paid = 0.0, 0.0, 0
+        header(self, "⏱ Foco & Loja", "estude, ganhe pontos e monte sua casa")
         L = ctk.CTkFrame(self); L.pack(side="left", fill="y", padx=(0, 8), pady=4, ipadx=10)
         self.phase_lbl = ctk.CTkLabel(L, text="", font=("Segoe UI", 15, "bold")); self.phase_lbl.pack(pady=(14, 0))
         self.clock = ctk.CTkLabel(L, text="", font=("Consolas", 30, "bold"), text_color=GOLD); self.clock.pack(pady=10, padx=6)
+        self.pbar = ctk.CTkProgressBar(L, height=8, progress_color=GOLD); self.pbar.set(0); self.pbar.pack(fill="x", padx=20)
         self.subj = ctk.CTkOptionMenu(L, values=["Geral"]); self.subj.pack(pady=4)
         self.btn = ctk.CTkButton(L, text="▶ Iniciar Estudo", height=40, command=self.toggle, **PRIMARY)
         self.btn.pack(pady=10, padx=20, fill="x")
@@ -28,6 +30,8 @@ class FocusTab(ctk.CTkFrame):
         ctk.CTkButton(L, text="⚙ Configurar timer", fg_color="gray30", command=self.settings).pack(padx=20, pady=(6, 0), fill="x")
         ctk.CTkButton(L, text="🛠 +5000 pts (teste)", fg_color="gray20", command=app.dev_points).pack(padx=20, pady=(6, 0), fill="x")
         self.info = ctk.CTkLabel(L, text=f"+{PTS_PER_MIN} pontos por minuto de foco", text_color="gray70", wraplength=230); self.info.pack(pady=10)
+        self.dlbl = ctk.CTkLabel(L, text="", text_color=MUTED); self.dlbl.pack()
+        self.dbar = ctk.CTkProgressBar(L, height=8, progress_color=TEAL); self.dbar.set(0); self.dbar.pack(fill="x", padx=20, pady=(2, 10))
         R = ctk.CTkFrame(self); R.pack(side="left", fill="both", expand=True, pady=4)
         self.title = ctk.CTkLabel(R, font=("Segoe UI", 17, "bold")); self.title.pack(pady=(10, 4))
         self.canvas = ctk.CTkCanvas(R, width=544, height=344, highlightthickness=0, bg="#151a2b"); self.canvas.pack()
@@ -50,6 +54,7 @@ class FocusTab(ctk.CTkFrame):
         self.clock.configure(text=fmt_t(max(0, self.total() - e) if pomo else e))
         extra = f" • ciclo {self.done % c['cycles'] + 1}/{c['cycles']}" if pomo else " • progressivo"
         self.phase_lbl.configure(text=f"{self.ICON[self.phase]} {self.phase}{extra}")
+        self.pbar.set(min(1, e / self.total()) if pomo else (e % 60) / 60)  # progresso da fase (ou do próximo ponto)
 
     def stop_job(self):
         if self.job: self.after_cancel(self.job); self.job = None
@@ -135,6 +140,8 @@ class FocusTab(ctk.CTkFrame):
         d = self.app.data; n = len(d["items"])
         self.subj.configure(values=list(d["subjects"]) + ["Geral"])
         self.title.configure(text=f"🏠 {TITLES[min(n // 6, 4)]} — {n}/{len(ITEMS)} itens")
+        g, got = goal_min(d), studied(d, date.today())
+        self.dlbl.configure(text=f"Meta de hoje: {got}/{g} min"); animate(self.dbar, min(1, got / g) if g else 0, 600, True)
         draw(self.canvas, d["items"])
         for w in self.shop.winfo_children(): w.destroy()
         for name, emo, price, *_ in ITEMS:

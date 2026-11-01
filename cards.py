@@ -6,7 +6,7 @@ import customtkinter as ctk
 import images
 from rules import schedule_card
 from storage import save
-from theme import PRIMARY, GOLD, TEAL, RED
+from theme import PRIMARY, GOLD, TEAL, RED, VIOLET, EDGE, MUTED, header, chip, tag_color
 
 GRADES = [("Errei", RED), ("Difícil", "#c98a3a"), ("Bom", TEAL), ("Fácil", "#4a90d9")]
 NONE = "—"
@@ -17,6 +17,7 @@ class CardsTab(ctk.CTkFrame):
         self.app, self.mode, self.queue, self.show_ans = app, "Estudar", [], False
         self.f_sub, self.f_cat, self.last_sub, self.cm_subj = "Todas", "Todas", None, None
         self.reset_form()
+        header(self, "🧠 Revisão", "flashcards com repetição espaçada")
         self.seg = ctk.CTkSegmentedButton(self, values=["Estudar", "Gerenciar", "Categorias"], command=self.set_mode)
         self.seg.pack(anchor="w")
         self.body = ctk.CTkFrame(self, fg_color="transparent"); self.body.pack(fill="both", expand=True, pady=8)
@@ -74,23 +75,40 @@ class CardsTab(ctk.CTkFrame):
         if im: ctk.CTkLabel(parent, text="", image=im).pack(pady=6)
 
     def study(self):
-        top = ctk.CTkFrame(self.body, fg_color="transparent"); top.pack(fill="x")
+        d = self.app.data; today = date.today().isoformat()
+        top = ctk.CTkFrame(self.body, fg_color="transparent"); top.pack(fill="x", pady=(0, 6))
         labs = ["Todas"] + self.cat_labels(self.f_sub)
         if self.f_cat not in labs: self.f_cat = "Todas"
         om = ctk.CTkOptionMenu(top, values=labs, command=self.set_fcat); om.set(self.f_cat); om.pack(side="right", padx=(6, 0))
         om = ctk.CTkOptionMenu(top, values=["Todas"] + self.subjects(), command=self.set_fsub); om.set(self.f_sub); om.pack(side="right")
+        # barra lateral hierárquica: categoria > subcategoria, com cartões pendentes
+        side = ctk.CTkScrollableFrame(self.body, width=190, label_text="Seções"); side.pack(side="left", fill="y", padx=(0, 8))
+        due = [c for c in d["cards"] if c["due"] <= today and self.f_sub in ("Todas", c["subject"])]
+        for lab in ["Todas"] + self.cat_labels(self.f_sub):
+            cat, _, sub = lab.partition(" › ")
+            n = sum(1 for c in due if lab == "Todas" or (c.get("category") == cat and (not sub or c.get("sub") == sub)))
+            on = lab == self.f_cat
+            ctk.CTkButton(side, text=("      └ " if sub else "") + f"{sub or cat} ({n})", anchor="w", height=28,
+                          fg_color=VIOLET if on else "transparent", hover_color=EDGE,
+                          text_color=None if (on or lab == "Todas") else tag_color(sub or cat),
+                          command=lambda l=lab: self.set_fcat(l)).pack(fill="x", pady=1)
+        main = ctk.CTkFrame(self.body, fg_color="transparent"); main.pack(side="left", fill="both", expand=True)
         if not self.queue:
-            txt = "🎉 Tudo revisado por hoje!" if self.app.data["cards"] else "Você ainda não tem cartões.\nCrie o primeiro na aba Gerenciar."
-            ctk.CTkLabel(self.body, text=txt, font=("Segoe UI", 18), text_color="gray70").pack(expand=True); return
+            txt = "🎉 Tudo revisado por hoje!" if d["cards"] else "Você ainda não tem cartões.\nCrie o primeiro na aba Gerenciar."
+            ctk.CTkLabel(main, text=txt, font=("Segoe UI", 18), text_color=MUTED).pack(expand=True); return
         c = self.get(self.queue[0])
-        path = " › ".join(x for x in (c["subject"], c.get("category"), c.get("sub")) if x)
-        ctk.CTkLabel(self.body, text=f"{path}  •  {len(self.queue)} para revisar", text_color=GOLD).pack()
-        bar = ctk.CTkFrame(self.body, fg_color="transparent"); bar.pack(side="bottom", pady=8)
-        card = ctk.CTkScrollableFrame(self.body, corner_radius=16); card.pack(fill="both", expand=True, padx=40, pady=8)
+        crumbs = ctk.CTkFrame(main, fg_color="transparent"); crumbs.pack(fill="x")
+        for i, x in enumerate((c["subject"], c.get("category"), c.get("sub"))):  # etiquetas: matéria › categoria › subcategoria
+            if x:
+                if i: ctk.CTkLabel(crumbs, text="›", text_color=MUTED).pack(side="left")
+                chip(crumbs, x, tag_color(x)).pack(side="left", padx=3)
+        ctk.CTkLabel(crumbs, text=f"{len(self.queue)} para revisar", text_color=MUTED).pack(side="right")
+        bar = ctk.CTkFrame(main, fg_color="transparent"); bar.pack(side="bottom", pady=8)
+        card = ctk.CTkScrollableFrame(main, corner_radius=16); card.pack(fill="both", expand=True, pady=8)
         self.side(card, c["q"], c.get("q_img"), ("Segoe UI", 20, "bold"))
         if not self.show_ans:
             ctk.CTkButton(bar, text="Mostrar resposta", height=42, command=self.reveal, **PRIMARY).pack(); return
-        ctk.CTkFrame(card, height=2, fg_color="gray30").pack(fill="x", padx=30, pady=8)
+        ctk.CTkFrame(card, height=2, fg_color=EDGE).pack(fill="x", padx=30, pady=8)
         self.side(card, c["a"], c.get("a_img"), ("Segoe UI", 17), TEAL)
         for g, (name, col) in enumerate(GRADES):
             t = copy(c); schedule_card(t, g)
@@ -166,9 +184,10 @@ class CardsTab(ctk.CTkFrame):
             rw = ctk.CTkFrame(lst, fg_color="transparent"); rw.pack(fill="x")
             ctk.CTkButton(rw, text="🗑", width=32, fg_color="gray30", command=lambda i=c["id"]: self.delete(i)).pack(side="right", padx=2)
             ctk.CTkButton(rw, text="✏", width=32, fg_color="gray30", command=lambda i=c["id"]: self.edit(i)).pack(side="right")
-            path = " › ".join(x for x in (c["subject"], c.get("category"), c.get("sub")) if x)
             pic = " 🖼" if c.get("q_img") or c.get("a_img") else ""
-            ctk.CTkLabel(rw, anchor="w", text=f"[{path}] {c['q'][:55]}{pic}  •  próxima: {c['due']}").pack(side="left")
+            for x in (c["subject"], c.get("category"), c.get("sub")):
+                if x: chip(rw, x, tag_color(x)).pack(side="left", padx=2)
+            ctk.CTkLabel(rw, anchor="w", text=f" {c['q'][:45]}{pic}  •  {c['due']}").pack(side="left")
 
     def save_card(self):
         q, a = self.q.get("1.0", "end").strip(), self.a.get("1.0", "end").strip()
@@ -240,12 +259,15 @@ class CardsTab(ctk.CTkFrame):
         count = lambda **k: sum(all(c.get(a) == b for a, b in k.items()) and c["subject"] == self.cm_subj for c in d["cards"])
         for cat, subs_ in cs.items():
             rw = ctk.CTkFrame(lst, fg_color="transparent"); rw.pack(fill="x", pady=(10, 0))
-            ctk.CTkLabel(rw, text=f"📁 {cat} ({count(category=cat)})", font=("Segoe UI", 14, "bold"), anchor="w").pack(side="left")
+            chip(rw, cat, tag_color(cat)).pack(side="left")
+            ctk.CTkLabel(rw, text=f"  {count(category=cat)} cartão(ões)", text_color=MUTED).pack(side="left")
             ctk.CTkButton(rw, text="🗑", width=32, fg_color="gray30", command=lambda c=cat: self.del_cat(c)).pack(side="right")
             se = ctk.CTkEntry(rw, width=150, placeholder_text="Subcategoria")
             ctk.CTkButton(rw, text="➕", width=32, command=lambda c=cat, x=se: self.add_sub(c, x)).pack(side="right", padx=4)
             se.pack(side="right")
             for s in subs_:
                 r2 = ctk.CTkFrame(lst, fg_color="transparent"); r2.pack(fill="x")
-                ctk.CTkLabel(r2, text=f"      └ {s} ({count(category=cat, sub=s)})", anchor="w").pack(side="left")
+                ctk.CTkLabel(r2, text="      └", text_color=MUTED).pack(side="left")
+                chip(r2, s, tag_color(s)).pack(side="left", padx=4)
+                ctk.CTkLabel(r2, text=str(count(category=cat, sub=s)), text_color=MUTED).pack(side="left")
                 ctk.CTkButton(r2, text="🗑", width=28, fg_color="gray30", command=lambda c=cat, x=s: self.del_sub(c, x)).pack(side="right")

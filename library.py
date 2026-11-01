@@ -3,7 +3,7 @@ from datetime import datetime
 from tkinter import messagebox
 import customtkinter as ctk
 from storage import BASE, save
-from theme import PRIMARY, TEAL
+from theme import PRIMARY, TEAL, header, tag_color, animate
 
 FOLDER = os.path.join(BASE, "PDFs")
 OLD = os.path.join(BASE, "Aulas")  # nome antigo: migrado automaticamente
@@ -47,11 +47,13 @@ class LibraryTab(ctk.CTkFrame):
     def __init__(self, master, app):
         super().__init__(master, fg_color="transparent")
         self.app, self.sig, self.filter, self.labels, self.keys = app, None, "Todas", {}, []
+        header(self, "📚 PDFs", "sua biblioteca organizada por matéria")
         top = ctk.CTkFrame(self, fg_color="transparent"); top.pack(fill="x")
         self.count = ctk.CTkLabel(top, text="", text_color=TEAL); self.count.pack(side="left", padx=8)
         for text, cmd, kw in [("🗑 Pasta", self.remove_folder, dict(fg_color="gray30")), ("➕ Pasta", self.add_folder, PRIMARY),
                               ("📂 Abrir", lambda: open_file(FOLDER), dict(fg_color="gray30")), ("Atualizar", self.refresh, {})]:
             ctk.CTkButton(top, text=text, width=90, command=cmd, **kw).pack(side="right", padx=3)
+        self.pbar = ctk.CTkProgressBar(self, height=8, progress_color=TEAL); self.pbar.set(0); self.pbar.pack(fill="x", padx=8, pady=(2, 4))
         self.seg = ctk.CTkSegmentedButton(self, values=["Todas"], command=self.set_filter); self.seg.pack(anchor="w", pady=6)
         self.grid_f = ctk.CTkScrollableFrame(self); self.grid_f.pack(fill="both", expand=True, pady=(0, 8))
         for c in range(3):
@@ -103,7 +105,9 @@ class LibraryTab(ctk.CTkFrame):
 
     def update_count(self):
         done = self.app.data["pdf_done"]
-        self.count.configure(text=f"✅ {sum(k in done for k in self.keys)}/{len(self.keys)} estudados")
+        n = sum(k in done for k in self.keys)
+        self.count.configure(text=f"✅ {n}/{len(self.keys)} estudados")
+        animate(self.pbar, n / len(self.keys) if self.keys else 0, 500, True)
 
     def refresh(self):
         names, groups = self.sig = self.scan()
@@ -124,7 +128,8 @@ class LibraryTab(ctk.CTkFrame):
             key = f"{k}/{f}"; on = key in done
             card = ctk.CTkFrame(self.grid_f, corner_radius=12, border_width=2, border_color=TEAL if on else "gray25")
             card.grid(row=i // 3, column=i % 3, padx=6, pady=6, sticky="nsew")
-            ctk.CTkLabel(card, text=subj.upper(), text_color=TEAL, font=("Segoe UI", 11, "bold")).pack(pady=(12, 0))
+            ctk.CTkFrame(card, height=5, corner_radius=3, fg_color=tag_color(subj)).pack(fill="x", padx=14, pady=(10, 0))
+            ctk.CTkLabel(card, text=subj.upper(), text_color=tag_color(subj), font=("Segoe UI", 11, "bold")).pack(pady=(6, 0))
             ctk.CTkLabel(card, text="📄 " + f, wraplength=210, font=("Segoe UI", 14, "bold")).pack(padx=10, pady=(2, 2))
             ctk.CTkLabel(card, text=fmt(sz), text_color="gray70").pack()
             var = ctk.BooleanVar(value=on)

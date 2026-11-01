@@ -1,4 +1,5 @@
 """Regras do app: cronograma, penalidades e reajuste por simulados."""
+import calendar
 from datetime import date, timedelta
 
 DAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
@@ -95,16 +96,18 @@ def analyze(d, last=3):
     return sorted(out, key=lambda r: r["avg"])
 
 def propose_adjustment(d):
-    """Novo peso = metade do peso atual + metade do alvo (5 - média/10 x 4); queda forte sobe, alta forte desce."""
+    """Pesos calculados ESTRITAMENTE a partir dos últimos 3 simulados (média 0-10 + tendência); o peso antigo não entra na conta."""
     new, changes = dict(d["subjects"]), []
-    for r in analyze(d):
+    for r in analyze(d, 3):
         s = r["subject"]
         if s not in new: continue
-        w = 0.5 * new[s] + 0.5 * (5 - r["avg"] / 10 * 4) + (0.5 if r["trend"] <= -1.5 else -0.5 if r["trend"] >= 1.5 else 0)
-        nw = max(1, min(5, int(w + 0.5)))
+        nw = max(1, min(5, int(5 - r["avg"] * 0.4 + (0.5 if r["trend"] <= -1.5 else -0.5 if r["trend"] >= 1.5 else 0) + 0.5)))
         if nw != new[s]: changes.append((s, new[s], nw, r["avg"], r["trend"]))
         new[s] = nw
     return new, changes, build_schedule(new, d["daily_goal_h"], d["per_day"])
+
+def last3(d):
+    return d["simulados"][-3:]
 
 def reminder_due(d):
     """True se faz mais de 30 dias do último simulado (ou da criação do cronograma)."""
@@ -123,3 +126,27 @@ def schedule_card(c, grade):
         else: iv = max(c["interval"] + 1, round(c["interval"] * c["ease"] * (0.8, 1, 1.3)[grade - 1]))
         c["interval"], c["reps"] = iv, c["reps"] + 1
     c["due"] = (date.today() + timedelta(c["interval"])).isoformat()
+
+def month_stats(d, y, m):
+    today, g, n = date.today(), goal_min(d), calendar.monthrange(y, m)[1]
+    days = [(date(y, m, i), None if date(y, m, i) > today else studied(d, date(y, m, i))) for i in range(1, n + 1)]
+    past = [x for _, x in days if x is not None]
+    return {"days": days, "n": n, "goal": g, "elapsed": len(past), "studied": sum(past),
+            "met": sum(x >= g for x in past), "half": sum(x >= g / 2 for x in past)}
+
+def grade(d, y, m):
+    """Nota 0-10 do mês: metas (40%), constância = dias com >=50% da meta (30%) e resultados = média dos 3 últimos simulados (30%)."""
+    ms = month_stats(d, y, m)
+    if not ms["elapsed"]: return {"score": 0.0, "metas": 0.0, "const": 0.0, "res": None}
+    metas = min(1.0, ms["studied"] / (ms["goal"] * ms["elapsed"])) if ms["goal"] else 0.0
+    const = ms["half"] / ms["elapsed"]
+    sims = [s for s in d["simulados"] if s["date"] <= date(y, m, ms["n"]).isoformat()][-3:]
+    res = sum(overall(s) for s in sims) / len(sims) / 10 if sims else None
+    score = 10 * (0.4 * metas + 0.3 * const + 0.3 * res) if res is not None else 10 * (0.55 * metas + 0.45 * const)
+    return {"score": round(score, 1), "metas": metas, "const": const, "res": res}
+
+def streak(d):
+    day, g, n = date.today(), goal_min(d), 0
+    if studied(d, day) < g: day -= timedelta(1)
+    while g > 0 and studied(d, day) >= g: n += 1; day -= timedelta(1)
+    return n

@@ -1,8 +1,10 @@
 from datetime import date, timedelta
+from tkinter import messagebox
 import customtkinter as ctk
-from rules import DAYS, build_schedule, weekly_minutes
+from rules import DAYS, build_schedule, weekly_minutes, propose_adjustment
+from simulado import ProposalDialog
 from storage import save
-from theme import PRIMARY, GOLD, RED
+from theme import PRIMARY, GOLD, RED, TEAL, VIOLET, EDGE, MUTED, header, chip, tag_color, animate
 
 class PlanTab(ctk.CTkFrame):
     def __init__(self, master, app):
@@ -57,34 +59,36 @@ class PlanTab(ctk.CTkFrame):
 
     # ---------- Cronograma + To-Do ----------
     def view(self):
-        d = self.app.data
-        top = ctk.CTkFrame(self, fg_color="transparent"); top.pack(fill="x", pady=(0, 6))
-        wm = weekly_minutes(d["subjects"], d["daily_goal_h"])
-        ctk.CTkLabel(top, text=f"Meta: {d['daily_goal_h']:g} h/dia  •  {sum(wm.values()) / 60:.1f} h/semana  •  {d['per_day']} matéria(s)/dia",
-                     font=("Segoe UI", 15, "bold"), text_color=GOLD).pack(side="left", padx=8)
-        ctk.CTkButton(top, text="Reconfigurar", width=110, fg_color="gray30",
-                      command=lambda: (self.clear(), self.wizard())).pack(side="right")
-        left = ctk.CTkScrollableFrame(self, label_text="Grade semanal")
-        left.pack(side="left", fill="both", expand=True, padx=(0, 6))
-        for s, m in sorted(wm.items(), key=lambda x: -x[1]):
-            ctk.CTkLabel(left, text=f"{s}: {m // 60}h{m % 60:02d} (dificuldade {d['subjects'][s]})",
-                         anchor="w").pack(fill="x", padx=6)
+        d = self.app.data; wm = weekly_minutes(d["subjects"], d["daily_goal_h"])
+        top = header(self, "🗓 Cronograma", f"{d['daily_goal_h']:g} h/dia • {sum(wm.values()) / 60:.1f} h/semana • {d['per_day']} matéria(s)/dia")
+        ctk.CTkButton(top, text="Reconfigurar", width=110, fg_color="gray30", command=lambda: (self.clear(), self.wizard())).pack(side="right")
+        ctk.CTkButton(top, text="🔄 Reajustar (últimos 3 simulados)", width=240, command=self.readjust, **PRIMARY).pack(side="right", padx=8)
+        main = ctk.CTkFrame(self, fg_color="transparent"); main.pack(fill="both", expand=True)
+        left = ctk.CTkScrollableFrame(main, label_text="Grade semanal"); left.pack(side="left", fill="both", expand=True, padx=(0, 6))
+        sm = ctk.CTkFrame(left, fg_color="transparent"); sm.pack(fill="x", pady=(0, 6))
+        for i, (s, m) in enumerate(sorted(wm.items(), key=lambda x: -x[1])):
+            chip(sm, f"{s} · {m // 60}h{m % 60:02d} · dif. {d['subjects'][s]}", tag_color(s)).grid(row=i // 3, column=i % 3, padx=3, pady=2, sticky="w")
+        grid = ctk.CTkFrame(left, fg_color="transparent"); grid.pack(fill="x")
+        for c in range(4): grid.columnconfigure(c, weight=1, uniform="d")
         for i, day in enumerate(DAYS):
-            hoje = i == date.today().weekday()
-            ctk.CTkLabel(left, text=day + (" (hoje)" if hoje else ""), anchor="w",
-                         font=("Segoe UI", 14, "bold"), text_color=GOLD if hoje else None).pack(fill="x", padx=6, pady=(12, 0))
-            for t in d["schedule"].get(day, []):
-                ctk.CTkLabel(left, text=f"   {t['subject']} — {t['minutes']} min", anchor="w").pack(fill="x", padx=6)
-        right = ctk.CTkScrollableFrame(self, label_text="To-Do")
-        right.pack(side="left", fill="both", expand=True)
-        ctk.CTkSegmentedButton(right, values=["Hoje", "Semana"], command=self.set_mode).pack(pady=6)
-        self.todo(right)
+            hoje = i == date.today().weekday(); tasks = d["schedule"].get(day, [])
+            card = ctk.CTkFrame(grid, border_width=2, border_color=VIOLET if hoje else EDGE)
+            card.grid(row=i // 4, column=i % 4, padx=4, pady=4, sticky="nsew")
+            ctk.CTkLabel(card, text=day + (" • hoje" if hoje else ""), font=("Segoe UI", 13, "bold"), text_color=GOLD if hoje else None).pack(anchor="w", padx=10, pady=(8, 0))
+            ctk.CTkLabel(card, text=f"{sum(t['minutes'] for t in tasks)} min", text_color=MUTED).pack(anchor="w", padx=10)
+            for t in tasks: chip(card, f"{t['subject']} · {t['minutes']}m", tag_color(t["subject"])).pack(anchor="w", padx=8, pady=2)
+            ctk.CTkLabel(card, text="", height=4).pack()
+        right = ctk.CTkScrollableFrame(main, label_text="To-Do", width=300); right.pack(side="left", fill="y")
+        self.todo_lbl = ctk.CTkLabel(right, text="", text_color=MUTED); self.todo_lbl.pack()
+        self.todo_bar = ctk.CTkProgressBar(right, height=10, progress_color=TEAL); self.todo_bar.set(0); self.todo_bar.pack(fill="x", padx=10, pady=(2, 6))
+        seg = ctk.CTkSegmentedButton(right, values=["Hoje", "Semana"], command=self.set_mode); seg.set(self.mode); seg.pack(pady=6)
+        self.todo(right); self.upd_todo(True)
 
     def set_mode(self, m):
         self.mode = m; self.refresh()
 
     def todo(self, parent):
-        d, today = self.app.data, date.today()
+        d, today = self.app.data, date.today(); self.today_keys = []
         days = [today] if self.mode == "Hoje" else [today - timedelta(today.weekday()) + timedelta(i) for i in range(7)]
         for day in days:
             tasks = d["schedule"].get(DAYS[day.weekday()], [])
@@ -92,9 +96,24 @@ class PlanTab(ctk.CTkFrame):
                 ctk.CTkLabel(parent, text=f"{DAYS[day.weekday()]} {day:%d/%m}", font=("Segoe UI", 13, "bold")).pack(anchor="w", pady=(8, 0))
             for t in tasks:
                 key = f"{day.isoformat()}|{t['subject']}"
+                if day == today: self.today_keys.append(key)
                 var = ctk.BooleanVar(value=d["todo"].get(key, False))
                 ctk.CTkCheckBox(parent, text=f"{t['subject']} — {t['minutes']} min", variable=var,
                                 command=lambda k=key, v=var: self.check(k, v)).pack(anchor="w", pady=3)
 
+    def upd_todo(self, first=False):
+        keys = self.today_keys; done = sum(bool(self.app.data["todo"].get(k)) for k in keys)
+        self.todo_lbl.configure(text=f"{done}/{len(keys)} concluídas hoje")
+        animate(self.todo_bar, done / len(keys) if keys else 0, 500, not first)
+
     def check(self, key, var):
-        self.app.data["todo"][key] = var.get(); save(self.app.data)
+        self.app.data["todo"][key] = var.get(); save(self.app.data); self.upd_todo()
+
+    def readjust(self):
+        d = self.app.data
+        if not d["simulados"]:
+            return messagebox.showinfo("Reajuste", "Registre ao menos um simulado na aba Desempenho primeiro.")
+        new, changes, sched = propose_adjustment(d)
+        if not changes:
+            return messagebox.showinfo("Reajuste", "Os pesos já refletem seus últimos 3 simulados. Nada a mudar.")
+        ProposalDialog(self, self.app, new, changes, sched)

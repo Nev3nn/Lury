@@ -1,8 +1,8 @@
 from datetime import date
 import customtkinter as ctk
-from rules import build_schedule
+from rules import build_schedule, weekly_minutes, analyze, last3
 from storage import save
-from theme import PRIMARY, RED
+from theme import PRIMARY, RED, MUTED
 
 def num(e):
     try: return float(e.get().strip().replace(",", "."))
@@ -103,3 +103,29 @@ class WeightsDialog(ctk.CTkToplevel):
             d["schedule"] = build_schedule(d["subjects"], d["daily_goal_h"], d["per_day"])
             d["schedule_date"] = date.today().isoformat(); save(d); self.destroy(); app.refresh()
         ctk.CTkButton(self, text="Salvar e refazer cronograma", command=ok, **PRIMARY).pack(pady=12)
+
+class ProposalDialog(ctk.CTkToplevel):
+    """Nova grade calculada só com os últimos 3 simulados. Aceitar grava no cronograma."""
+    def __init__(self, master, app, new, changes, sched):
+        super().__init__(master); self.title("Reajuste do cronograma"); self.geometry("560x540")
+        self.transient(master.winfo_toplevel()); self.after(150, self.grab_set)
+        d = app.data; sims = last3(d)
+        old_m, new_m = weekly_minutes(d["subjects"], d["daily_goal_h"]), weekly_minutes(new, d["daily_goal_h"])
+        weak = [r["subject"] for r in analyze(d) if r["avg"] < 6]
+        ctk.CTkLabel(self, text="Reajuste do cronograma", font=("Segoe UI", 18, "bold")).pack(pady=(16, 2))
+        ctk.CTkLabel(self, text=f"Baseado estritamente nos últimos {len(sims)} simulado(s): "
+                     + ", ".join(f"{x['date'][8:10]}/{x['date'][5:7]}" for x in sims), text_color=MUTED, wraplength=500).pack()
+        ctk.CTkLabel(self, text="🎯 Pior desempenho: " + (", ".join(weak) or "nenhum"), wraplength=500).pack(pady=4)
+        box = ctk.CTkScrollableFrame(self); box.pack(fill="both", expand=True, padx=16, pady=8)
+        for s, o, n, avg, dl in changes:
+            ctk.CTkLabel(box, anchor="w", justify="left", text=(
+                f"{'🔺' if n > o else '🔻'} {s}: dificuldade {o} → {n}\n    nota média {avg:.1f}/10 ({dl:+.1f}) • "
+                f"{old_m.get(s, 0)} → {new_m.get(s, 0)} min/semana")).pack(fill="x", pady=4)
+
+        def close(accept):
+            if accept: d.update(subjects=new, schedule=sched)
+            save(d); self.destroy(); app.refresh()
+        ctk.CTkLabel(self, text="Aceita a Nova Grade?", font=("Segoe UI", 15, "bold")).pack(pady=(4, 4))
+        b = ctk.CTkFrame(self, fg_color="transparent"); b.pack(pady=10)
+        ctk.CTkButton(b, text="Aceita a Nova Grade", command=lambda: close(True), **PRIMARY).pack(side="left", padx=6)
+        ctk.CTkButton(b, text="Manter a atual", fg_color="gray30", command=lambda: close(False)).pack(side="left", padx=6)
